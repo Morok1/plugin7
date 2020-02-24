@@ -1,0 +1,15 @@
+//class extends from cursor
+// name cut cursor
+//create table with this name
+//regenerate at some activity
+//disable inspection
+//defeine celesta project if recoursces contains chelcesta dependencies
+// all elements error find view просто view не будет
+
+//конфигурация дефолтовая скор назодистся, схордит в мавен плагин
+//отключаем инспекции
+//находим фрагмент
+
+// сходить от одного шксти ыск потом
+
+// убрать иконку с диалектом
