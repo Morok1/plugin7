@@ -1,7 +1,7 @@
 
 
 /**Строка счёта*/
-CREATE TABLE OrderLine(
+CREATE TABLE Order(
   order_id VARCHAR(30) NOT NULL,
   line_no INT NOT NULL,
   item_id VARCHAR(30) NOT NULL,
