@@ -116,7 +116,8 @@ public class SimpleRunMarkerProvider extends RelatedItemLineMarkerProvider {
                         setTooltipText("Navigate to a website property");
         result.add(builder.createLineMarkerInfo(element));
 //
-//        List<PsiElement> targetPoints = getTargetPoints(element);
+//        List<PsiElement> targetPoints = getTargetPoints(element);{
+//}
 //        targetPoints.toArray();
     }
 
@@ -135,19 +136,16 @@ public class SimpleRunMarkerProvider extends RelatedItemLineMarkerProvider {
     private PsiElement getTargetElementByPsiFile(PsiFile file, PsiElement element) {
         List<PsiElement> tablesCursorOrSequence = stream(file.getChildren())
                 .filter(isSqlCreateTableStatement)
-                .filter(elem -> isExtendsOfCursorString
-                        .or(isExtendsOfSequenceString)
-                        .test(elem.getText()))
                 .collect(toList());
 
         String className = element.getText();
 
         if (className.contains("extends ")) {
-            className = element.getText().replaceAll("extends ", "");
+            className = className.replaceAll("extends ", "");
         }
 
         if (className.contains("Cursor")) {
-            className = element.getText().replaceAll("Cursor", "");
+            className = className.replaceAll("Cursor", "");
         }
 
         String finalClassName = className;
