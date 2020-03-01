@@ -3,25 +3,26 @@ package plugin;
 import com.intellij.codeInsight.daemon.RelatedItemLineMarkerInfo;
 import com.intellij.codeInsight.daemon.RelatedItemLineMarkerProvider;
 import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
-import com.intellij.openapi.module.Module;
 import com.intellij.psi.*;
 import com.intellij.psi.search.FilenameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.sql.psi.SqlColumnDefinition;
-import com.intellij.sql.psi.SqlPsiFacade;
 import com.intellij.util.IconUtil;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
+import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static com.intellij.openapi.module.ModuleUtilCore.findModuleForPsiElement;
 import static com.intellij.psi.search.GlobalSearchScope.moduleWithDependenciesAndLibrariesScope;
 import static java.util.Arrays.stream;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
+import static plugin.util.StringUtil.*;
 
 //class extends from cursor
 
@@ -44,14 +45,17 @@ import static java.util.stream.Collectors.toList;
 // сходить от одного шксти ыск потом
 
 // убрать иконку с диалектом
-public class SimpleRunMarkerProvider extends RelatedItemLineMarkerProvider {
-    public static final String WEBSITE = "website";
-    public static final String SIMPLE = "simple";
-    public static final String EXTENDS = "extends";
 
-    public static final String EXTENDS_CURSOR = ".*(extends)*Cursor";
-    public static final String EXTENDS_SEQUENCE = ".*(extends)*Sequence";
-    public static final String SQL_FILE = ".*.sql";
+
+//Saturday
+// 1. Get all sql file in project
+// 2 Get Sql_create_table_statement
+// 3. by element name
+
+
+
+
+public class SimpleRunMarkerProvider extends RelatedItemLineMarkerProvider {
 
     Predicate<PsiElement> isPsiKeyword = element -> element instanceof PsiKeyword;
     Predicate<PsiElement> contextIsPreferenceList = element -> element.getContext() instanceof PsiReferenceList;
@@ -70,6 +74,11 @@ public class SimpleRunMarkerProvider extends RelatedItemLineMarkerProvider {
     BiPredicate<String, String> test = (pattern, matcher) -> Pattern.compile(pattern).matcher(matcher).matches();
 
     Predicate<String> isSqlFile = s -> Pattern.compile(SQL_FILE).matcher(s).matches();
+    private BiFunction<PsiElement, String, Function<GlobalSearchScope, PsiFile[]>> getSqlFileByName
+            = (element, fileName)-> scope -> FilenameIndex.getFilesByName(element.getProject(), fileName, scope);
+    private Predicate<PsiElement> isSqlCreateTableStatement = elem -> elem.getNavigationElement()
+            .toString()
+            .equals(SQL_CREATE_TABLE_STATEMENT);
 
     @Override
     protected void collectNavigationMarkers(@NotNull PsiElement element,
@@ -103,99 +112,63 @@ public class SimpleRunMarkerProvider extends RelatedItemLineMarkerProvider {
     private void drawButton(@NotNull PsiElement element, @NotNull Collection<? super RelatedItemLineMarkerInfo> result) {
         NavigationGutterIconBuilder<PsiElement> builder =
                 NavigationGutterIconBuilder.create(IconUtil.getAddIcon()).
-                        setTargets(emptyList()). /*getPublisherTargets(element, "System.out.println(\"website\");")*/
+                        setTargets(getTargetPoints(element)). /*getPublisherTargets(element, "System.out.println(\"website\");")*/
                         setTooltipText("Navigate to a website property");
         result.add(builder.createLineMarkerInfo(element));
-
-        Module module = findModuleForPsiElement(element);
-        GlobalSearchScope scope = moduleWithDependenciesAndLibrariesScope(module);
-
-
-        Collection<String> sqlFileNames = getSqlFilesOfProject(element);
-        PsiFile[] psiFiles = FilenameIndex.getFilesByName(element.getProject(), "order.sql", scope);
-
+//
+//        List<PsiElement> targetPoints = getTargetPoints(element);
+//        targetPoints.toArray();
     }
 
-    private Collection<String> getSqlFilesOfProject(@NotNull PsiElement element) {
+    private List<PsiElement> getTargetPoints(@NotNull PsiElement element) {
+        GlobalSearchScope scope = moduleWithDependenciesAndLibrariesScope(findModuleForPsiElement(element));
+
+        List<String> sqlFileNames = getSqlFilesOfProject(element);
+        List<PsiFile> sqlFilesInProject = getSqlFilesInProject(element, scope, sqlFileNames);
+
+        return sqlFilesInProject.stream()
+                .map(file -> getTargetElementByPsiFile(file, element))
+                .filter(Objects::nonNull)
+                .collect(toList());
+    }
+
+    private PsiElement getTargetElementByPsiFile(PsiFile file, PsiElement element) {
+        List<PsiElement> tablesCursorOrSequence = stream(file.getChildren())
+                .filter(isSqlCreateTableStatement)
+                .filter(elem -> isExtendsOfCursorString
+                        .or(isExtendsOfSequenceString)
+                        .test(elem.getText()))
+                .collect(toList());
+
+        String className = element.getText();
+
+        if (className.contains("extends ")) {
+            className = element.getText().replaceAll("extends ", "");
+        }
+
+        if (className.contains("Cursor")) {
+            className = element.getText().replaceAll("Cursor", "");
+        }
+
+        String finalClassName = className;
+
+        Function<PsiElement, Boolean> isEqualClassName = elem -> elem.getText().split("\\h")[2].replace("(\n", "").
+                equals(finalClassName);
+        return tablesCursorOrSequence.stream()
+                .filter(isEqualClassName::apply)
+                .findFirst().orElse(null);
+    }
+
+    @NotNull
+    private List<PsiFile> getSqlFilesInProject(@NotNull PsiElement element, GlobalSearchScope scope, List<String> sqlFileNames) {
+        return sqlFileNames.stream()
+                .map(s -> getSqlFileByName.apply(element, s).apply(scope))
+                .flatMap(Arrays::stream)
+                .collect(toList());
+    }
+
+    private List<String> getSqlFilesOfProject(@NotNull PsiElement element) {
         String[] allFilenames = FilenameIndex.getAllFilenames(element.getProject());
         return stream(allFilenames).filter(isSqlFile).collect(toList());
-    }
-
-    private PsiElement findTargetInSqlFile(PsiFile psiFile) {
-//        psiFile.getChildren()
-        return null;
-    }
-
-    private List<PsiElement> getPublisherTargets(PsiElement element, String value) {
-        if (!(element instanceof PsiIdentifier)) return emptyList();
-        PsiElement parent = element.getParent();
-        if (!(parent instanceof PsiLiteralExpression)) return emptyList();
-        Module module = findModuleForPsiElement(element);
-        if (module == null) return emptyList();
-
-        return getPublishPoints(module, value);
-    }
-
-
-    private List<PsiElement> getPublishPoints(Module module, String value) {
-        GlobalSearchScope globalSearchScope = moduleWithDependenciesAndLibrariesScope(module);
-        List<PsiMethod> publicMethods = getPublicMethods(globalSearchScope);
-        List<PsiElement> res = new ArrayList<>();
-        for (PsiMethod method : publicMethods) {
-            if (method.getBody() != null) {
-                List<PsiElement> simple =
-                        stream(Objects.requireNonNull(method.getBody()).getStatements())
-                                .filter(s -> s.getText().equals(value)).map(PsiElement::getParent).collect(toList());
-                Optional.of(simple).map(res::addAll);
-            }
-        }
-        return res;
-    }
-
-
-
-    private List<PsiElement> getSqlTables(GlobalSearchScope scope) {
-        SqlPsiFacade sqlPsiFacade = SqlPsiFacade.getInstance(scope.getProject());
-        sqlPsiFacade.createROFile(sqlPsiFacade.getDefaultDialect(), "order.sql");
-        return emptyList();
-    }
-
-    private List<PsiElement> getPublishSqlTargets(PsiElement element, String value) {
-        Module module = findModuleForPsiElement(element);
-
-//        return getPublishSqlPoints(module, value);
-        return null;
-    }
-
-    private List<SqlColumnDefinition> getPublishSqlPoints(Module module, String value) {
-        GlobalSearchScope globalSearchScope = moduleWithDependenciesAndLibrariesScope(module);
-        List<PsiMethod> publicMethods = getPublicMethods(globalSearchScope);
-        List<PsiElement> res = new ArrayList<>();
-        for (PsiMethod method : publicMethods) {
-            if (method.getBody() != null) {
-                List<PsiElement> simple =
-                        stream(Objects.requireNonNull(method.getBody()).getStatements())
-                                .filter(s -> s.getText().equals(value)).map(PsiElement::getParent).collect(toList());
-                Optional.of(simple).map(res::addAll);
-            }
-        }
-//        return res;
-        return null;
-    }
-
-//
-//    private List<SqlColumnDefinition> getPublicSqlParameters(GlobalSearchScope scope) {
-////        SqlPsiFacade sqlPsiFacade = SqlPsiFacade.getInstance(scope.getProject());
-//
-////        PsiClass clazz = sqlPsiFacade.get(TEST, scope);
-////        return Arrays.asList(Objects.requireNonNull(clazz).getAllMethods());
-//        return null;
-//    }
-
-    private List<PsiMethod> getPublicMethods(GlobalSearchScope scope) {
-        JavaPsiFacade javaPsiFacade = JavaPsiFacade.getInstance(scope.getProject());
-
-        PsiClass clazz = javaPsiFacade.findClass("Test", scope);
-        return Arrays.asList(Objects.requireNonNull(clazz).getAllMethods());
     }
 }
