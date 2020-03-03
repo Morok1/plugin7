@@ -1,0 +1,21 @@
+plugins {
+    id 'org.jetbrains.intellij' version '0.4.9'
+}
+
+group 'ru.curs:celesta-idea-plugin'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation "ru.curs:celesta-core:7.2.11"
+}
+
+intellij {
+    version '2019.1'
+
+    plugins = ['properties']
+}
+

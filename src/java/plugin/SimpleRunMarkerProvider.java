@@ -61,7 +61,16 @@ public class SimpleRunMarkerProvider extends RelatedItemLineMarkerProvider {
     Predicate<PsiElement> contextIsPreferenceList = element -> element.getContext() instanceof PsiReferenceList;
     Predicate<PsiElement> isPsiPreferenceList = element -> element instanceof PsiReferenceList;
     Predicate<PsiElement> containsExtends = element -> element.getText().contains(EXTENDS);
-    Predicate<PsiElement> isPsiJavaFile = element -> element.getContainingFile() instanceof PsiJavaFile;
+    Predicate<PsiElement> isPsiJavaFile = element ->
+    {
+        if (element.getContainingFile() instanceof PsiJavaFile) {
+            PsiJavaFile file = (PsiJavaFile) element.getContainingFile();
+            return file.getContainingDirectory().getText().contains("generated-sources");
+        } else return false;
+    };
+
+
+
     Predicate<PsiElement> isPsiLiteralExpression = element -> element instanceof PsiLiteralExpression;
     BiPredicate<String, String> isStartWith = (value, word) -> value != null && value.startsWith(word);
 
