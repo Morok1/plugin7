@@ -1,4 +1,4 @@
-package plugin;
+package plugin.util;
 
 import com.intellij.codeInsight.daemon.RelatedItemLineMarkerInfo;
 import com.intellij.codeInsight.daemon.RelatedItemLineMarkerProvider;
@@ -61,12 +61,10 @@ import static plugin.util.StringUtil.*;
 // класс в target'e
 //3.Убрать no data source
 //4. Автоматические генерировать target(при нахождении в pom.xml ru.kurs)
-//5.refactroring method name
-//6.Refactoring class logic
+//5.
+//
 //
 
-//result - not running, dont find SqlStatementImpl
-//
 
 public class SimpleRunMarkerProvider extends RelatedItemLineMarkerProvider {
 
@@ -111,10 +109,12 @@ public class SimpleRunMarkerProvider extends RelatedItemLineMarkerProvider {
                     drawButton(classElement, result);
             }
         }
+
     }
 
+
     //file name index
-///    FilenameIndex.getFilesByName(element.getProject(), "order.sql", moduleWithDependenciesAndLibrariesScope(findModuleForPsiElement(element)))[0].getChildren()[3].getText()
+//    FilenameIndex.getFilesByName(element.getProject(), "order.sql", moduleWithDependenciesAndLibrariesScope(findModuleForPsiElement(element)))[0].getChildren()[3].getText()
     private void drawButton(@NotNull PsiClass element, @NotNull Collection<? super RelatedItemLineMarkerInfo> result) {
 
         System.out.println("!!!!!");
