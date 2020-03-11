@@ -3,6 +3,7 @@ package plugin;
 import com.intellij.codeInsight.daemon.RelatedItemLineMarkerInfo;
 import com.intellij.codeInsight.daemon.RelatedItemLineMarkerProvider;
 import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
+import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
 import com.intellij.psi.search.FilenameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
@@ -63,13 +64,13 @@ import static plugin.util.StringUtil.*;
 //4. Автоматические генерировать target(при нахождении в pom.xml ru.kurs)
 //5.refactroring method name
 //6.Refactoring class logic
-//
+//7. Caching result
 
 //result - not running, dont find SqlStatementImpl
 //
 
 public class SimpleRunMarkerProvider extends RelatedItemLineMarkerProvider {
-
+    private Map<String, Stream<String>> allSqlFileInProject = new HashMap<>();
     Predicate<PsiElement> isPsiKeyword = element -> element instanceof PsiKeyword;
     Predicate<PsiElement> contextIsPreferenceList = element -> element.getContext() instanceof PsiReferenceList;
     Predicate<PsiElement> isPsiReferenceList = element -> element instanceof PsiReferenceList;
@@ -106,15 +107,16 @@ public class SimpleRunMarkerProvider extends RelatedItemLineMarkerProvider {
                                             @NotNull Collection<? super RelatedItemLineMarkerInfo> result) {
         if (element instanceof PsiClass) {
             PsiClass classElement = (PsiClass) element;
+            System.out.println(classElement.getName() + "!!!!");
+            System.out.println(classElement.getExtendsListTypes()[0].getClassName() + "!!!!");
             for (PsiClassType superType : classElement.getExtendsListTypes()) {
-                if ("Cursor".equals(superType.getClassName()))
+                if (superType.getClassName().contains("Cursor"))
                     drawButton(classElement, result);
             }
         }
     }
 
-    //file name index
-///    FilenameIndex.getFilesByName(element.getProject(), "order.sql", moduleWithDependenciesAndLibrariesScope(findModuleForPsiElement(element)))[0].getChildren()[3].getText()
+
     private void drawButton(@NotNull PsiClass element, @NotNull Collection<? super RelatedItemLineMarkerInfo> result) {
 
         System.out.println("!!!!!");
@@ -123,21 +125,12 @@ public class SimpleRunMarkerProvider extends RelatedItemLineMarkerProvider {
                         setTargets(getTargetPoints(element)). /*getPublisherTargets(element, "System.out.println(\"website\");")*/
                         setTooltipText("Navigate to a website property");
         result.add(builder.createLineMarkerInfo(element));
-//
-//        List<PsiElement> targetPoints = getTargetPoints(element);{
-//}
-//        targetPoints.toArray();
     }
 
     private List<PsiElement> getTargetPoints(@NotNull PsiClass element) {
         GlobalSearchScope scope = moduleWithDependenciesAndLibrariesScope(findModuleForPsiElement(element));
 
         Stream<String> sqlFileNames = getSqlFilesOfProject(element);
-        System.out.println("--------------");
-        getSqlFilesOfProject(element).forEach(
-                System.out::println
-        );
-        System.out.println("---------------");
 
         Stream<PsiFile> sqlFilesInProject = getSqlFilesInProject(element, scope, sqlFileNames);
 
@@ -146,7 +139,7 @@ public class SimpleRunMarkerProvider extends RelatedItemLineMarkerProvider {
                 .map(file -> getTargetElementByPsiFile(file, element))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .findAny()
+                    .findAny()
                 .map(Collections::singletonList).orElse(Collections.emptyList());
 
     }
@@ -171,7 +164,9 @@ public class SimpleRunMarkerProvider extends RelatedItemLineMarkerProvider {
     }
 
     private Stream<String> getSqlFilesOfProject(@NotNull PsiElement element) {
-        String[] allFilenames = FilenameIndex.getAllFilenames(element.getProject());
-        return stream(allFilenames).filter(isSqlFile);
+        Project project = element.getProject();
+        String projectName = project.getName();
+        allSqlFileInProject.putIfAbsent(projectName, stream(FilenameIndex.getAllFilenames(project)).filter(isSqlFile));
+        return allSqlFileInProject.get(projectName);
     }
 }
